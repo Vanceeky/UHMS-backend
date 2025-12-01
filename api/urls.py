@@ -2,7 +2,8 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from api.views.room import RoomTypeViewSet
-from api.views.booking import AvailableRoomsView, BookingViewSet, BookingListView, ApproveBookingView, RejectBookingView, CancelBookingView
+from api.views.booking import AvailableRoomsView, BookingViewSet, BookingListView, ApproveBookingView, RejectBookingView, CancelBookingView, AvailablePhysicalRoomsView, CheckInGuestView, CheckOutGuestView
+from api.views.check_out import BookingDetailView
 
 
 router = DefaultRouter()
@@ -18,5 +19,14 @@ urlpatterns += [
 
 
     path('room-types/<int:pk>/available-rooms/', AvailableRoomsView.as_view(), name='available-rooms'),
-    
+        # ⭐ NEW ENDPOINTS ⭐
+    path('room-types/<int:pk>/available-physical-rooms/', AvailablePhysicalRoomsView.as_view(),
+         name='available-physical-rooms'),
+
+     path('bookings/<str:booking_id>/check-in/', CheckInGuestView.as_view(), name='booking-check-in'),
+
+     path("booking/<str:booking_id>/check-out/", CheckOutGuestView.as_view(), name="booking-check-out"),
+
+    path("bookings/<str:booking_id>/details/", BookingDetailView.as_view(), name="booking-detail"),
+
     ]

@@ -48,6 +48,7 @@ class Room(models.Model):
         CLEANING = "cleaning", "Cleaning In Progress"
         MAINTENANCE = "maintenance", "Under Maintenance"
         OUT_OF_SERVICE = "out_of_service", "Out of Service"
+      
 
     room_number = models.CharField(max_length=10, unique=True)
     floor = models.PositiveIntegerField(default=1)
@@ -86,6 +87,13 @@ class Booking(models.Model):
         REJECTED = "rejected", "Rejected"
 
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="bookings")
+    assigned_room = models.ForeignKey(
+        Room,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_bookings"
+    )
     guest_name = models.CharField(max_length=255)
     email = models.EmailField()
     contact_number = models.CharField(max_length=20)

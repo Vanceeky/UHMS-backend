@@ -9,7 +9,12 @@ from decimal import Decimal
 class RoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = Room
-        fields = ('id', 'room_number', 'status', 'room_type')
+        fields = ('id', 'room_number', 'status', 'floor', 'room_type')
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ["id", "amount", "payment_type", "status", "description", "paid_at"]
 
 
 class BookingCreateSerializer(serializers.ModelSerializer):
@@ -135,11 +140,18 @@ class BookingSerializer(serializers.Serializer):
     checkOut = serializers.DateField(source="check_out")
 
     roomType = serializers.SerializerMethodField()
+    roomTypeId = serializers.IntegerField(source="room.room_type.id")
+    assignedRoom = serializers.SerializerMethodField()
+
     nights = serializers.SerializerMethodField()
     totalAmount = serializers.DecimalField(source="total_price", max_digits=10, decimal_places=2)
 
     downpayment = serializers.SerializerMethodField()
     remainingBalance = serializers.SerializerMethodField()
+
+    additionalFee = serializers.JSONField(source="additional_fee")
+
+    payments = PaymentSerializer(many=True)
 
     paymentRef = serializers.SerializerMethodField()
     paymentReceiptUrl = serializers.SerializerMethodField()
@@ -175,6 +187,17 @@ class BookingSerializer(serializers.Serializer):
 
     def get_remainingBalance(self, obj):
         down = self.get_downpayment(obj)
+        
+        # If the booking is checked-in or later
+        if obj.status in [Booking.Status.CHECKED_IN, Booking.Status.CHECKED_OUT]:
+            remaining_paid = obj.payments.filter(
+                payment_type=Payment.PaymentCategory.REMAINING,
+                status=Payment.PaymentStatus.PAID
+            ).exists()
+            if remaining_paid:
+                return 0.0
+        
+        # Otherwise, calculate normally
         return float(obj.total_price) - float(down)
 
     def get_paymentRef(self, obj):
@@ -188,3 +211,8 @@ class BookingSerializer(serializers.Serializer):
     def get_guests(self, obj):
         return obj.adults + obj.children + obj.extra_children
 
+
+    def get_assignedRoom(self, obj):
+        if obj.assigned_room:
+            return obj.assigned_room.room_number
+        return None

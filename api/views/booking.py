@@ -3,13 +3,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
-from api.models import RoomType, Room, Booking
+from api.models import RoomType, Room, Booking, Payment
 from api.serializers.booking_serializer import RoomSerializer, BookingCreateSerializer, BookingSerializer
 from rest_framework import viewsets, mixins, parsers
 from rest_framework.generics import ListAPIView
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.utils import timezone
 
 
 
@@ -155,3 +156,108 @@ class CancelBookingView(APIView):
         booking.save()
         return Response({"detail": f"Booking {booking.id} cancelled successfully."})
     
+
+
+class AvailablePhysicalRoomsView(APIView):
+    def get(self, request, pk):  # pk = room_type id
+        room_type = get_object_or_404(RoomType, id=pk)
+
+        rooms = Room.objects.filter(
+            room_type=room_type,
+            status=Room.Status.AVAILABLE
+        )
+
+        assigned_rooms = Booking.objects.filter(
+            assigned_room__isnull=False
+        ).values_list('assigned_room_id', flat=True)
+
+        available_rooms = rooms.exclude(id__in=assigned_rooms)
+
+        serializer = RoomSerializer(available_rooms, many=True)
+        return Response(serializer.data)
+
+
+
+class CheckInGuestView(APIView):
+    def post(self, request, booking_id):
+        # 1. Get booking
+        booking = get_object_or_404(Booking, id=booking_id)
+        remaining_balance = request.data.get("remaining_balance")
+
+        if booking.status != Booking.Status.CONFIRMED:
+            return Response({"error": "Only confirmed bookings can be checked in."}, status=400)
+
+        # 2. Get selected room from request
+        room_id = request.data.get("room_id")
+        room = get_object_or_404(Room, id=room_id)
+
+        if room.status != Room.Status.AVAILABLE:
+            return Response({"error": "Room is not available."}, status=400)
+
+        # 3. Assign room and update statuses
+        booking.assigned_room = room
+        booking.status = Booking.Status.CHECKED_IN
+        booking.save()
+
+        room.status = Room.Status.OCCUPIED
+        room.save()
+
+
+
+        # 4. Handle remaining balance payments
+        Payment.objects.create(
+            booking=booking,  # Link the payment to the current booking
+            amount=remaining_balance,  # Amount of the remaining balance
+            payment_type=Payment.PaymentCategory.REMAINING,  # Categorize as "Remaining Balance"
+            status=Payment.PaymentStatus.PAID,  # Mark the payment as fully paid
+            description=f"Remaining balance fully paid for booking {booking.id}: ₱{remaining_balance}",  # Detailed description for reporting
+        )
+
+        return Response({
+            "message": "Guest successfully checked in.",
+            "booking_id": booking.id,
+            "room": f"{room.room_type.name} - #{room.room_number}",
+            "guest_name": booking.guest_name
+        }, status=status.HTTP_200_OK)
+
+
+
+class CheckOutGuestView(APIView):
+    def post(self, request, booking_id):
+        booking = get_object_or_404(Booking, id=booking_id)
+        room = booking.assigned_room
+
+        if not room:
+            return Response({"error": "No room assigned for this booking."}, status=400)
+        if room.status != Room.Status.OCCUPIED:
+            return Response({"error": "Room is not occupied."}, status=400)
+        if booking.status != Booking.Status.CHECKED_IN:
+            return Response({"error": "Only checked-in bookings can be checked out."}, status=400)
+
+        # Update booking and room
+        booking.status = Booking.Status.CHECKED_OUT
+        booking.save()
+
+        room.status = Room.Status.DIRTY
+        room.save()
+
+        # Handle additional fees
+        additional_fees = booking.additional_fee or []
+        for fee in additional_fees:
+            Payment.objects.create(
+                booking=booking,
+                amount=fee["amount"],
+                payment_type=Payment.PaymentCategory.ADDITIONAL,
+                status=Payment.PaymentStatus.PAID,
+                description=fee.get("description", ""),
+            )
+
+        return Response({
+            "message": "Guest successfully checked out.",
+            "booking_id": booking.id,
+            "room": f"{room.room_type.name} - #{room.room_number}",
+            "guest_name": booking.guest_name,
+            "additional_fees": additional_fees,
+        })
+
+

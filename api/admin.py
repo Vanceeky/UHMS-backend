@@ -37,10 +37,12 @@ class PaymentInline(admin.TabularInline):
 # ------------------------------
 class BookingInline(admin.TabularInline):
     model = Booking
+    fk_name = 'room'
     extra = 1
     readonly_fields = (
         'guest_name', 'email', 'contact_number',
         'check_in', 'check_out', 'adults', 'children',
+        'assigned_room',
         'extra_children', 'total_price', 'status', 'notes'
     )
     fields = readonly_fields
@@ -93,6 +95,7 @@ class BookingAdmin(admin.ModelAdmin):
         'check_out',
         'status',
         'total_price',
+        
     )
     list_filter = ('status', 'check_in', 'check_out')
     search_fields = ('guest_name', 'email', 'contact_number', 'room__room_number')
@@ -103,7 +106,7 @@ class BookingAdmin(admin.ModelAdmin):
             'fields': ('room', 'guest_name', 'email', 'contact_number')
         }),
         ('Booking Info', {
-            'fields': ('check_in', 'check_out', 'adults', 'children', 'extra_children', 'total_price', 'additional_fee', 'status', 'notes')
+            'fields': ('check_in', 'check_out', 'assigned_room', 'adults', 'children', 'extra_children', 'total_price', 'additional_fee', 'status', 'notes')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at')
