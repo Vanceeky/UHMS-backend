@@ -4,7 +4,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from api.models import RoomType, Room, Booking, Payment
-from api.serializers.booking_serializer import RoomSerializer, BookingCreateSerializer, BookingSerializer
+from api.serializers.booking_serializer import RoomSerializer, BookingCreateSerializer, BookingSerializer, CheckedInBookingSerializer
 from rest_framework import viewsets, mixins, parsers
 from rest_framework.generics import ListAPIView
 
@@ -76,6 +76,10 @@ class ApproveBookingView(APIView):
         # Update booking status
         booking.status = Booking.Status.CONFIRMED
         booking.save()
+
+        payment = get_object_or_404(Payment, booking=booking)
+        payment.status = Payment.PaymentStatus.PAID
+        payment.save()
 
         # Prepare email content
         subject = f"Booking Confirmed: {booking.id}"
@@ -244,12 +248,16 @@ class CheckOutGuestView(APIView):
         # Handle additional fees
         additional_fees = booking.additional_fee or []
         for fee in additional_fees:
+            item_name = fee.get("name", "Additional Item")
+            amount = fee.get("amount", 0)
+
+            description = f"Additional charge for {item_name} (₱{amount:,.2f})"
             Payment.objects.create(
                 booking=booking,
                 amount=fee["amount"],
                 payment_type=Payment.PaymentCategory.ADDITIONAL,
                 status=Payment.PaymentStatus.PAID,
-                description=fee.get("description", ""),
+                description=description
             )
 
         return Response({
@@ -259,5 +267,22 @@ class CheckOutGuestView(APIView):
             "guest_name": booking.guest_name,
             "additional_fees": additional_fees,
         })
+
+
+
+class CheckedInBookingListView(APIView):
+   # permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        bookings = (
+            Booking.objects
+            .filter(status=Booking.Status.CHECKED_IN)
+            .select_related("assigned_room", "assigned_room__room_type")
+            .order_by("assigned_room__room_number")
+        )
+
+        serializer = CheckedInBookingSerializer(bookings, many=True)
+        return Response(serializer.data)
+
 
 

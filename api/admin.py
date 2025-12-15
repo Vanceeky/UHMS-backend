@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, RoomType, Room, Booking, Payment
+from .models import CustomUser, RoomType, Room, Booking, Payment, Order, OrderItem, Menu
 
 # ------------------------------
 # CustomUser
@@ -112,3 +112,50 @@ class BookingAdmin(admin.ModelAdmin):
             'fields': ('created_at', 'updated_at')
         }),
     )
+
+
+
+@admin.register(Menu)
+class MenuAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "category",
+        "price",
+        "stock",
+        "is_available",
+        "low_stock_level",
+    )
+    list_filter = ("category", "is_available")
+    search_fields = ("name",)
+
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 1
+    autocomplete_fields = ["menu"]
+    readonly_fields = ("menu_name", "price", "subtotal")
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "order_type",
+        "order_status",
+        "total_amount",
+        "created_at",
+    )
+    list_filter = ("order_type", "order_status")
+    inlines = [OrderItemInline]
+    readonly_fields = ("total_amount",)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+
+        order = form.instance
+        total = sum(item.subtotal for item in order.items.all())
+        order.total_amount = total
+        order.save(update_fields=["total_amount"])
+
+
+        

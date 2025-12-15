@@ -216,3 +216,23 @@ class BookingSerializer(serializers.Serializer):
         if obj.assigned_room:
             return obj.assigned_room.room_number
         return None
+    
+
+
+
+
+
+
+
+class CheckedInBookingSerializer(serializers.ModelSerializer):
+    roomNumber = serializers.CharField(source="assigned_room.room_number", read_only=True)
+    roomType = serializers.CharField(source="assigned_room.room_type.name", read_only=True)
+    name = serializers.CharField(source="guest_name", read_only=True)
+    class Meta:
+        model = Booking
+        fields = [
+            "id",
+            "name",
+            "roomNumber",
+            "roomType",
+        ]

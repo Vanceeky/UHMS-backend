@@ -1,6 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 import datetime
+from django.core.exceptions import ValidationError
+
+
+
 # Create your models here.
 
 
@@ -138,6 +142,7 @@ class Booking(models.Model):
     def __str__(self):
         return f"{self.guest_name} - {self.room.room_number} ({self.check_in} to {self.check_out})"
 
+
 # ------------------------------
 # Payment Model
 # ------------------------------
@@ -184,5 +189,146 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.booking.guest_name} - {self.payment_type} ({self.amount} - {self.status})"
+
+
+
+
+
+class Menu(models.Model):
+
+    CATEGORY_CHOICES = [
+        ('BREAKFAST', 'Breakfast'),
+        ('MAIN', 'Main Course'),
+        ('APPETIZER', 'Appetizers'),
+        ('DRINK', 'Drinks'),
+        ('DESSERT', 'Desserts'),
+    ]
+
+    name = models.CharField(max_length=100)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    description = models.TextField(blank=True, null=True)
+
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    imageUrl = models.ImageField(upload_to='menu_images/', blank=True, null=True)
+
+    stock = models.PositiveIntegerField(default=0)
+    low_stock_level = models.PositiveIntegerField(default=10)
+    is_available = models.BooleanField(default=True)
+
+    isBestSeller = models.BooleanField(default=False) 
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        if self.price <= 0:
+            raise ValidationError("Price must be greater than zero.")
+
+    def deduct_stock(self, quantity=1):
+        if quantity <= 0:
+            raise ValidationError("Quantity must be greater than zero.")
+
+        if self.stock < quantity:
+            raise ValidationError("Insufficient stock.")
+
+        self.stock -= quantity
+
+        if self.stock == 0:
+            self.is_available = False
+
+        self.save(update_fields=["stock", "is_available"])
+
+    def is_low_stock(self):
+        return self.stock <= self.low_stock_level
+
+    def __str__(self):
+        return self.name
+    
+
+
+class Order(models.Model):
+
+    class OrderType(models.TextChoices):
+        DINE_IN = "dine_in", "Dine-in"
+        ROOM_SERVICE = "room_service", "Room Service"
+
+    class OrderStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PREPARING = "preparing", "Preparing"
+        SERVED = "served", "Served"
+        CANCELLED = "cancelled", "Cancelled"
+
+    booking = models.ForeignKey(
+        Booking,
+        on_delete=models.CASCADE,
+        related_name="orders",
+        null=True,
+        blank=True
+    )
+
+    order_type = models.CharField(
+        max_length=20,
+        choices=OrderType.choices,
+        default=OrderType.DINE_IN
+    )
+
+    order_status = models.CharField(
+        max_length=20,
+        choices=OrderStatus.choices,
+        default=OrderStatus.PENDING
+    )
+
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        if self.order_type == self.OrderType.ROOM_SERVICE and not self.booking:
+            raise ValidationError("Room service orders must be linked to a booking.")
+
+    def __str__(self):
+        return f"Order #{self.id} ({self.order_type})"
+
+
+
+class OrderItem(models.Model):
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="items"
+    )
+
+    menu = models.ForeignKey(Menu, on_delete=models.PROTECT)
+
+    menu_name = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.PositiveIntegerField()
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        if self.quantity is not None and self.quantity <= 0:
+            raise ValidationError("Quantity must be greater than zero.")
+
+        if self.price is not None and self.price <= 0:
+            raise ValidationError("Price must be greater than zero.")
+
+
+    def save(self, *args, **kwargs):
+        # Snapshot values
+        self.menu_name = self.menu.name
+        self.price = self.menu.price
+
+        self.subtotal = self.price * self.quantity
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.menu_name} x {self.quantity}"
+
 
 
