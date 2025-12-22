@@ -133,18 +133,28 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 # --- Email backend for development ---
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-# Optional settings (not used by console backend, but good to have defaults)
-DEFAULT_FROM_EMAIL = "hotel@example.com"
-EMAIL_HOST = "localhost"
-EMAIL_PORT = 25
-EMAIL_USE_TLS = False
-EMAIL_HOST_USER = ""
-EMAIL_HOST_PASSWORD = ""
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = "vanceeq.dev@gmail.com"
+EMAIL_HOST_PASSWORD = "iubl jsak geuf lnyq"
+
+DEFAULT_FROM_EMAIL = "JIM.Dev <vanceeq.dev@gmail.com>"
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_CREDENTIALS = True # never do this in production
+
+
+
+SIMPLE_JWT = {
+    'AUTH_HEADER_TYPES': ('Bearer',),  # You can use 'Bearer' if you prefer
+}
+
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -161,6 +171,9 @@ SPECTACULAR_SETTINGS = {
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
 }
 
 

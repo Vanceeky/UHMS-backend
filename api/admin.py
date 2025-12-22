@@ -1,15 +1,19 @@
 from django.contrib import admin
 from .models import CustomUser, RoomType, Room, Booking, Payment, Order, OrderItem, Menu
-
+from django.contrib.auth.admin import UserAdmin
 # ------------------------------
 # CustomUser
 # ------------------------------
 @admin.register(CustomUser)
-class CustomUserAdmin(admin.ModelAdmin):
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active')
+class CustomUserAdmin(UserAdmin):
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', "role")
     search_fields = ('username', 'email', 'first_name', 'last_name')
-    list_filter = ('is_staff', 'is_active')
-
+    list_filter = ('is_staff', 'is_active', "role")
+    list_editable = ("role",)
+    # Create form (add user)
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        ('Custom Fields', {'fields': ('role',)}),
+    )
 
 # ------------------------------
 # Payment Inline for Booking

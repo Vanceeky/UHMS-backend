@@ -1,10 +1,14 @@
-from django.urls import path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from api.views.room import RoomTypeViewSet
 from api.views.booking import AvailableRoomsView, BookingViewSet, BookingListView, ApproveBookingView, RejectBookingView, CancelBookingView, AvailablePhysicalRoomsView, CheckInGuestView, CheckOutGuestView, CheckedInBookingListView
 from api.views.check_out import BookingDetailView
 from api.views.order import MenuView, OrderViewSet
+
+from api.views.auth import CustomTokenObtainPairView, CustomTokenRefreshView
+
+from api.views.room_operations import RoomOperationViewSet
 
 
 router = DefaultRouter()
@@ -13,9 +17,13 @@ router.register(r'bookings', BookingViewSet, basename='booking')
 
 router.register(r'menu', MenuView, basename='menu')
 router.register(r'order', OrderViewSet, basename='order')
+router.register(r'room-operations', RoomOperationViewSet, basename='room-operations')
 
 urlpatterns = router.urls
 urlpatterns += [    
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
+
     path("booking-list/", BookingListView.as_view(), name="booking-list"),
     path('bookings/<str:pk>/approve/', ApproveBookingView.as_view(), name='booking-approve'),
     path('bookings/<str:pk>/reject/', RejectBookingView.as_view(), name='booking-reject'),
@@ -32,6 +40,7 @@ urlpatterns += [
      path("booking/<str:booking_id>/check-out/", CheckOutGuestView.as_view(), name="booking-check-out"),
 
     path("bookings/<str:booking_id>/details/", BookingDetailView.as_view(), name="booking-detail"),
+
 
 
     path(

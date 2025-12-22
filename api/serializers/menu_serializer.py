@@ -38,10 +38,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
+    guestName = serializers.CharField(source="booking.guest_name", read_only=True)
+    roomNumber = serializers.CharField(source="booking.room.room_number", read_only=True)
 
     class Meta:
         model = Order
-        fields = ['id', 'booking', 'order_type', 'order_status', 'total_amount', 'items', 'created_at', 'updated_at']
+        fields = ['id', 'booking', 'guestName', 'roomNumber', 'order_type', 'order_status', 'total_amount', 'items', 'created_at', 'updated_at']
         read_only_fields = ['id', 'total_amount', 'created_at', 'updated_at']
 
     def validate(self, attrs):

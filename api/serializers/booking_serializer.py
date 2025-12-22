@@ -6,6 +6,10 @@ from datetime import date
 
 from decimal import Decimal
 
+from django.conf import settings
+from django.core.mail import send_mail
+
+
 class RoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = Room
@@ -38,10 +42,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
-        """
-        1. Check date validity.
-        2. Check if a room of this TYPE is actually available for these dates.
-        """
+
         check_in = data['check_in']
         check_out = data['check_out']
         room_type_id = data['room_type_id']
@@ -52,15 +53,13 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         if check_in < date.today():
             raise serializers.ValidationError("Cannot book dates in the past.")
 
-        # --- AVAILABILITY LOGIC ---
-        # Find all rooms of this specific type
+       
         rooms_of_type = Room.objects.filter(
             room_type_id=room_type_id, 
             status=Room.Status.AVAILABLE
         )
 
-        # Exclude rooms that have a booking overlapping with requested dates
-        # Overlap formula: (StartA < EndB) and (EndA > StartB)
+        
         unavailable_rooms = Booking.objects.filter(
             room__in=rooms_of_type,
             check_in__lt=check_out,
@@ -89,8 +88,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         room = self.context['available_room']
         room_type = room.room_type
 
-        # --- SERVER SIDE PRICE CALCULATION ---
-        # Never trust the price sent from the frontend
+        
         nights = (validated_data['check_out'] - validated_data['check_in']).days
         
         # Calculate Base
@@ -126,6 +124,47 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             description=f"20% Downpayment via GCash. Ref: {gcash_ref}"
         )
 
+        subject = f"Booking Received – Pending Verification (ID: {booking.id})"
+
+        message = f"""
+        Dear {booking.guest_name},
+
+        Thank you for choosing our hotel.
+
+        We have successfully received your booking request. Your reservation is currently
+        PENDING VERIFICATION while we review your submitted payment.
+
+        Booking Details:
+        - Booking ID: {booking.id}
+        - Room Type: {room.room_type.name}
+        - Check-in Date: {booking.check_in}
+        - Check-out Date: {booking.check_out}
+        - Total Guests: {booking.adults + booking.children + booking.extra_children}
+        - Total Price: ₱{booking.total_price}
+        - Downpayment Submitted: ₱{downpayment_amount}
+
+        Our team will verify your payment within 24 hours.
+        Once approved, you will receive a confirmation email.
+
+        If any additional information is required, we will contact you via this email.
+
+        Best regards,
+        Hotel Management Team
+        """
+
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[booking.email],
+            fail_silently=False,
+        )
+        
+ 
+        
+
+
+
         return booking
     
 
@@ -158,7 +197,7 @@ class BookingSerializer(serializers.Serializer):
 
     guests = serializers.SerializerMethodField()
 
-    # -------------- FIELD MAPPERS ---------------------
+
 
     def get_guestName(self, obj):
         return obj.guest_name

@@ -17,6 +17,7 @@ class CustomUser(AbstractUser):
         MAINTENANCE = 'maintenance', "MAINTENANCE"
         RESTUARANT = 'restaurant', "RESTAURANT"
         INVENTORY = 'inventory', "INVENTORY"
+        RESTUARANT_STAFF = 'restaurant_staff', "RESTUARANT_STAFF"
 
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.FRONT_DESK)
 
@@ -59,7 +60,7 @@ class Room(models.Model):
 
     # linked to room type
     room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='rooms')
-
+    note = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=30, choices=Status.choices, default=Status.AVAILABLE)
 
     created_at = models.DateTimeField(auto_now_add=True)

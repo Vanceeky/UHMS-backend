@@ -22,6 +22,37 @@ class MenuView(ViewSet):
         serializer = MenuSerializer(menus, many=True)
         return Response(serializer.data)
     
+    def retrieve(self, request, pk=None):
+        menu = get_object_or_404(Menu, pk=pk)
+        serializer = MenuSerializer(menu)
+        return Response(serializer.data)
+    
+    def create(self, request):
+        serializer = MenuSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+    
+    def patch(self, request, pk):
+        menu = get_object_or_404(Menu, pk=pk)
+        serializer = MenuSerializer(menu, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+    
+    def update(self, request, pk):
+        menu = get_object_or_404(Menu, pk=pk)
+        serializer = MenuSerializer(menu, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+    def delete(self, request, pk):
+        menu = get_object_or_404(Menu, pk=pk)
+        menu.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
 
 
 
@@ -33,6 +64,7 @@ class OrderViewSet(viewsets.ViewSet):
         orders = Order.objects.all().order_by("-created_at")
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
+    
 
     def retrieve(self, request, pk=None):
         try:
@@ -129,6 +161,9 @@ class OrderViewSet(viewsets.ViewSet):
 
         return Response(serializer.data)
 
+    def patch(self, request, pk=None):
+        return self.update(request, pk)
+    
     def destroy(self, request, pk=None):
         try:
             order = Order.objects.get(pk=pk)
